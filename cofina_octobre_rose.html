@@ -520,8 +520,24 @@
     }, "image/png");
   }
 
+  // The `claude` global only exists inside Claude.ai's artifact viewer.
+  // On a standalone site (Netlify, GitHub Pages, etc.) it is undefined,
+  // so every call must be guarded — falling back to a normal browser download.
   var downloadsCap = null;
-  claude.use("downloads").then(function (cap) { downloadsCap = cap; }).catch(function () {});
+  if (typeof claude !== "undefined" && claude && typeof claude.use === "function") {
+    claude.use("downloads").then(function (cap) { downloadsCap = cap; }).catch(function () {});
+  }
+
+  function fallbackBrowserDownload(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
 
   downloadBtn.addEventListener("click", function () {
     if (!userImg) return;
@@ -543,7 +559,9 @@
           downloadBtn.disabled = false;
         });
       } else {
-        setStatus("Le téléchargement n'est pas disponible dans cette vue.", true);
+        // Standalone site: plain browser download always works here.
+        fallbackBrowserDownload(blob, filename);
+        setStatus("Image téléchargée ✓");
         downloadBtn.disabled = false;
       }
     });
